@@ -25,17 +25,17 @@ def mapper_ids(series):
     map_ = dict()
     
     for j, id in enumerate(series.values):
-        map_[id] = j
+        map_[id] = int(j)
 
     # Convert
     series_mapped = series.map(map_)
 
     # Save the dictionary
-    save_dict = dict()
-    save_dict[series.name + ' ' + dti.now().strftime('%Y-%m-%d %H:%M')] = map_
+    # save_dict = dict()
+    # save_dict[series.name + ' ' + dti.now().strftime('%Y-%m-%d %H:%M')] = map_
 
-    file = open('mapped_ids.txt', 'a')
-    file.write('\n' + json.dumps(save_dict))
-    file.close()
+    # file = open('mapped_ids.txt', 'a')
+    # file.write('\n' + json.dumps(save_dict))
+    # file.close()
 
     return series_mapped, map_
