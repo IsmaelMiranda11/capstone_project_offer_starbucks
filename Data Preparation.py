@@ -84,7 +84,9 @@ def merge_and_filter(df_left,
     )
     
     condition1 = (df[col_filter] >= df[col_compare[0]]) 
+    # Se <, tira alguns valores, se <= fica mais. Testar os dois
     condition2 = (df[col_filter] <= df[col_compare[1]])
+
     condition3 = (pd.isna(df[col_filter])) # keep not seen offers in datase
     
     df = df.loc[condition1 & condition2 | condition3]
@@ -98,7 +100,7 @@ def validate_view(row):
     Outpu: the validation of viewed offer
     '''
     if not pd.isna(row['time_vie']):
-        if row['time_vie'] < row['period_max']:
+        if row['time_vie'] <= row['period_max']:
             return 1 
         else:
             return 0
@@ -112,7 +114,7 @@ def validate_complete(row):
     Outpu: complete offer after viewed
     '''
     if not pd.isna(row['time_com']):
-        if row['time_com'] > row['time_vie']: 
+        if row['time_com'] >= row['time_vie']: 
             return 1 
         else:
             return 0
@@ -160,47 +162,28 @@ def get_offer_table_user(user):
         'offer_id_rec', 'offer_id_vie',
         'time_vie', ['time_rec', 'time_next']
         )
+    # offer_df = offer_df.sort_values('time_rec')
 
     # Calculating the max time valid for offer
     offer_df['period_max'] = offer_df.time_rec + offer_df.duration*24
 
     offer_df['valid_view'] = offer_df.apply(lambda row: validate_view(row), axis=1)
 
+    offer_df['time_vie_next'] = offer_df.shift(-1, 
+            fill_value=transcript.time.max())['time_vie'].bfill()
+
+
     # Transactions from user, influenced by offers
     offer_df['tra_offer_infl'] = 0.0000
 
-    # 2.2 - Transactions
-    # Iterate over offers dataset and searching in the transactions the intervals
-    # considered to be influenced by an offer
-
-    for idx, _ in offer_df.iterrows():
-        time_vie  = offer_df['time_vie'].at[idx]
-        time_max  = offer_df['period_max'].at[idx]
-        # time_next = offer_df['time_next'].at[idx]
-
-        # Initialize variable
-        sum_tra_infl = 0
-        # Itarete over transactions
-        for jdx, _ in transaction_df.iterrows():
-            # Time of transactions
-            time_tra = transaction_df['time_tra'].at[jdx]
-            amo_tra  = transaction_df['amount_tra'].at[jdx]
-        
-            if (time_tra > time_vie and 
-                time_tra <= time_max #and 
-                # time_tra <= time_next
-                ):
-                sum_tra_infl += amo_tra
-        
-        # Assing to that offer
-        offer_df['tra_offer_infl'].at[idx] = sum_tra_infl
-    
     # 2.2 - Complete offers
     # Complete offers
     offer_df = merge_and_filter(offer_df, completed_df,
         'offer_id_rec', 'offer_id_com',
         'time_com', ['time_rec', 'period_max']
         )
+    # offer_df = offer_df.sort_values('time_rec')
+    # TODO
 
     # The same offer can be sent to a user and be completed together, 
     # generating duplicates
@@ -210,15 +193,51 @@ def get_offer_table_user(user):
 
     offer_df['completed_after_view'] = offer_df.apply(lambda row: validate_complete(row), axis=1)
 
+    # 2.2 - Transactions
+    # Iterate over offers dataset and searching in the transactions the intervals
+    # considered to be influenced by an offer
+
+    for idx, _ in offer_df.iterrows():
+        time_vie  = offer_df['time_vie'].at[idx]
+        time_max  = offer_df['period_max'].at[idx]
+        time_next = offer_df['time_vie_next'].at[idx]
+        time_com = offer_df['time_com'].at[idx]
+        
+        # Check if time_vie is na. If so, there is no transaction for it
+        if pd.isna(time_vie):
+            offer_df['tra_offer_infl'].at[idx] = np.NaN
+            continue
+
+        # Case not complete offer, trate this as maximum value
+        if pd.isna(time_com):
+            time_com = transcript.time.max()
+
+        # Initialize variable
+        sum_tra_infl = 0
+        # Itarete over transactions
+        for jdx, _ in transaction_df.iterrows():
+            # Time of transactions
+            time_tra = transaction_df['time_tra'].at[jdx]
+            amo_tra  = transaction_df['amount_tra'].at[jdx]
+        
+            if (time_tra >= time_vie) and \
+                (time_tra < time_next and time_tra <= time_max and \
+                time_tra <= time_com):
+                sum_tra_infl += amo_tra
+        
+        # Assing to that offer
+        offer_df['tra_offer_infl'].at[idx] = sum_tra_infl
+    
+
     # 2.3 - Final
     # Getting the status for offers
     offer_df['viewed'] = offer_df.apply(lambda r: 
-        1 if not pd.isna(r['offer_id_vie']) else 0,
+        1 if not pd.isna(r['time_vie']) else 0,
         axis=1
         )
 
     offer_df['completed'] = offer_df.apply(lambda r: 
-        1 if not pd.isna(r['offer_id_com']) else 0,
+        1 if not pd.isna(r['time_com']) else 0,
         axis=1
         )
 
@@ -227,36 +246,6 @@ def get_offer_table_user(user):
        'reward_com', 'completed_after_view', 'viewed', 'completed']]
 
     return offer_df
-
-# def expand_portifolio(offer_df, portfolio_df=portfolio.copy()):
-#     '''
-#     Take the informations from portifolio dataframe and put it
-#     in the offer dataframe
-#     Input:
-#         offer_df - (dataframe) dataframe with offer by user treated
-#         protifolio_df - (dataframe) dataframe with features of protifolio
-#     Output
-#         offer_df - (dataframe) the original dataframe with expanded
-#         information about offers
-#     '''
-
-#     # columns_portifolio = ['offer_' + column for column in portfolio_df.columns]
-#     # portfolio_df.columns = columns_portifolio
-
-#     offer_df = offer_df.merge(portfolio_df,
-#         left_on='offer_id_rec',
-#         right_on='id'
-#         )
-    
-#     offer_df = offer_df.drop(columns=['channels', 'id', 'duration'])
-
-#     offer_df = offer_df.rename(columns={
-#         'reward': 'offer_reward', 
-#         'difficulty': 'offer_difficulty'
-#         }
-#     )
-
-#     return offer_df
 
 def group_offer_df(offer_df, map_dict=map_portifolio):
     '''
@@ -294,13 +283,11 @@ def group_offer_df(offer_df, map_dict=map_portifolio):
         )
 
     # offer_df = expand_portifolio(offer_df)
+    # TODO
 
     offer_df['offer_id_rec'] = offer_df['offer_id_rec'].map(map_dict)
 
     return offer_df
-
-
-# Create the complete dataframe
 
 def create_user_offer_df(user):
     '''
@@ -320,6 +307,7 @@ def create_user_offer_df(user):
 
     return user_offer_df
 
+
 # Iterate by user and get dataframes
 users = transcript.person.unique()
 # np.random.shuffle(users)
@@ -338,5 +326,5 @@ for user in users:
 
 user_offer_df = pd.concat(dfs).reset_index(drop=True)
 
-user_offer_df.to_csv('user_offer.csv', index=False)
-# user_offer_df.to_excel('user_offer2.xlsx')
+user_offer_df.to_csv('user_offer5.csv', index=False)
+user_offer_df.to_excel('user_offer44.xlsx')
