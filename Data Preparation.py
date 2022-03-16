@@ -91,7 +91,7 @@ def merge_and_filter(df_left,
 
     return df
 
-def get_viewed(row):
+def validate_view(row):
     '''
     Auxiliar function to account for valid views
     Input: row, a dataframe coming from apply lambda
@@ -105,7 +105,7 @@ def get_viewed(row):
     else:
         return np.nan
 
-def get_complete(row):
+def validate_complete(row):
     '''
     Auxliar function to account the offer complete after viewd
     Input: row, a datafram row coming from apply lambda
@@ -164,7 +164,7 @@ def get_offer_table_user(user):
     # Calculating the max time valid for offer
     offer_df['period_max'] = offer_df.time_rec + offer_df.duration*24
 
-    offer_df['valid_view'] = offer_df.apply(lambda row: get_viewed(row), axis=1)
+    offer_df['valid_view'] = offer_df.apply(lambda row: validate_view(row), axis=1)
 
     # Transactions from user, influenced by offers
     offer_df['tra_offer_infl'] = 0.0000
@@ -208,7 +208,7 @@ def get_offer_table_user(user):
         subset=['time_rec', 'offer_id_rec', 'time_vie']
         )
 
-    offer_df['completed_after_view'] = offer_df.apply(lambda row: get_complete(row), axis=1)
+    offer_df['completed_after_view'] = offer_df.apply(lambda row: validate_complete(row), axis=1)
 
     # 2.3 - Final
     # Getting the status for offers
