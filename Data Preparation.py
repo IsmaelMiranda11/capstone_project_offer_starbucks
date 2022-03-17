@@ -381,5 +381,29 @@ def generate_user_transactions():
     tra_user_df['person'] = tra_user_df['person'].map(map_profile)
     tra_user_df.to_csv('user_transactions.csv', index=False)
 
+def mapper_hex_id(profile, portfolio):
+    '''
+    Function to map hexadecimal ids to interger ids. Create 
+    a new column in existing datasets
+    '''
+    profile['user_id'] = profile.id.map(map_profile)
+    portfolio['offer_id'] = portfolio.id.map(map_portifolio)
+
+    return profile, portfolio
+
+def generate_datasets():
+    '''
+    Function to extract the datasets of profile and portfolio
+    to be used in others analysis
+    '''
+    # To map
+    profile_, portfolio_ = mapper_hex_id(profile, portfolio)
+    # Save as csv files
+    profile_.to_csv('profile.csv', index=False)
+    portfolio_.to_csv('portfolio.csv', index=False)
+
+
+
 # generate_user_offer()
-generate_user_transactions()
+# generate_user_transactions()
+generate_datasets()
