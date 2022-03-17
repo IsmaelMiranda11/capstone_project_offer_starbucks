@@ -1,0 +1,8 @@
+
+dce784e26f294101999d000fad9089bb - a mesma oferta foi enviada depois e completada antes, gerando uma linha de completada, mas como não entra no intervalo próprio para manter o dado, ela é excluída
+
+
+6918 dce784e26f294101999d000fad9089bb
+8553 5dfdad4241764dfe959f51b7460e42b1
+6689 05bedc6bbcc64a41b1745f6efe00776d
+15561 454b00bdd77c4f588eb9f6cafd81dc5d

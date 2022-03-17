@@ -1,6 +1,4 @@
 
-# Explorando dados do Starbucks
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,23 +12,36 @@ importlib.reload(aux_fun)
 from datetime import datetime as dti
 
 # Lendo os dados
-
-# Lendo os dados
-
 portfolio = pd.read_json('data/portfolio.json', orient='records', lines=True)
 profile = pd.read_json('data/profile.json', orient='records', lines=True)
 transcript = pd.read_json('data/transcript.json', orient='records', lines=True)
 
 # Mapping to integer   
 # O código hexadecimal é grande para trabalhar
-
 map_portifolio = json.load(open('mapper_id/portifolio_ids.json'))
 map_profile = json.load(open('mapper_id/profile_ids.json'))
 
-
-# Transformando em uma função
-
 # Functions
+def get_total_transaction(user):
+    '''
+    Some transactions might not be related with offer received, but just
+    a commom one. This function get the total of transactions made by
+    an user, because of an offer or not
+    Input:
+        user - the user id
+    Output:
+        total_tra - (float) total transaction
+    '''
+
+    cond = transcript.person == user #1510
+    user_df = transcript.loc[cond]
+
+    # Transactions
+    transaction_df = get_subset(user_df, 'transaction', '_tra', ['amount'])
+
+    total_tra = transaction_df['amount_tra'].sum()
+
+    return total_tra
 
 def get_subset(user_df, type, suffix, dict_keys):
     '''
@@ -92,6 +103,35 @@ def merge_and_filter(df_left,
     df = df.loc[condition1 & condition2 | condition3]
 
     return df
+
+def guarantee_viewed(original, merged):
+    '''
+    The main point of offer user table is that it must 
+    have all offer received by an user.
+    Some merge operations can vanish rows of viewed offers.
+    This function check original received offers and assemble
+    a complete dataset
+    Input:
+        original - (dataframe) Dataframe with all received offers
+        merged - (dataframe) Dataframe result of a merge that could
+        vanish a offer received row.
+    Output:
+        all_df - (dataframe) A complete dataframe with all received offer
+    '''
+    original = original.set_index(['time_rec', 'offer_id_rec'])
+    merged_index = merged.set_index(['time_rec', 'offer_id_rec'])
+    
+    index_original = original.index
+    index_merged = merged_index.index 
+    
+    # Test indexs. What index is in original but not in merged
+    index_exception = ~(index_original.isin(index_merged))
+    # Filter the original with missing index
+    original_miss = original.loc[index_exception].reset_index()
+    # Join tables
+    all_df = pd.concat([merged, original_miss]).reset_index(drop=True)
+
+    return all_df
 
 def validate_view(row):
     '''
@@ -178,12 +218,12 @@ def get_offer_table_user(user):
 
     # 2.2 - Complete offers
     # Complete offers
+    offer_rec_vie = offer_df.copy() # get a copy before merge
     offer_df = merge_and_filter(offer_df, completed_df,
         'offer_id_rec', 'offer_id_com',
         'time_com', ['time_rec', 'period_max']
         )
     # offer_df = offer_df.sort_values('time_rec')
-    # TODO
 
     # The same offer can be sent to a user and be completed together, 
     # generating duplicates
@@ -192,6 +232,8 @@ def get_offer_table_user(user):
         )
 
     offer_df['completed_after_view'] = offer_df.apply(lambda row: validate_complete(row), axis=1)
+
+    offer_df = guarantee_viewed(offer_rec_vie, offer_df) # all offers in dataset
 
     # 2.2 - Transactions
     # Iterate over offers dataset and searching in the transactions the intervals
@@ -307,24 +349,37 @@ def create_user_offer_df(user):
 
     return user_offer_df
 
+def generate_user_offer():
+    # Iterate by user and get dataframes
+    users = transcript.person.unique()
+    # np.random.shuffle(users)
 
-# Iterate by user and get dataframes
-users = transcript.person.unique()
-# np.random.shuffle(users)
-
-dfs = []
-cnt = 0
-for user in users:
-    cnt += 1
-    try:
-        df = create_user_offer_df(user)
-        dfs.append(df)
-    except:
-        print(user)
-    print((cnt/17000)*100, end="\r")
+    dfs = []
+    cnt = 0
+    for user in users:
+        cnt += 1
+        try:
+            df = create_user_offer_df(user)
+            dfs.append(df)
+        except:
+            print(user)
+        print((cnt/17000)*100, end="\r")
 
 
-user_offer_df = pd.concat(dfs).reset_index(drop=True)
+    user_offer_df = pd.concat(dfs).reset_index(drop=True)
 
-user_offer_df.to_csv('user_offer5.csv', index=False)
-user_offer_df.to_excel('user_offer55.xlsx')
+    user_offer_df.to_csv('user_offer6.csv', index=False)
+    user_offer_df.to_excel('user_offer6.xlsx')
+
+def generate_user_transactions():
+    '''
+    Function to extract the total of transaction made 
+    by an user
+    '''
+    tra_user_df = transcript[['person']].drop_duplicates().reset_index(drop=True)
+    tra_user_df['trans_amount'] = tra_user_df['person'].apply(get_total_transaction)
+    tra_user_df['person'] = tra_user_df['person'].map(map_profile)
+    tra_user_df.to_csv('user_transactions.csv', index=False)
+
+# generate_user_offer()
+generate_user_transactions()
