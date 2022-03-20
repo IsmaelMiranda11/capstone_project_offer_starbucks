@@ -1,6 +1,7 @@
 '''
 Auxiliary module to the project
 '''
+from unittest import result
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +13,13 @@ import sys
 import importlib
 from datetime import datetime as dti
 from statsmodels.stats import proportion, weightstats
+from itertools import combinations
+from yellowbrick.regressor import ResidualsPlot
 
+
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay,confusion_matrix
+
+# Utilities
 def mapper_ids(series):
     '''
     Function to mapper hex or other type of id and put it
@@ -33,8 +40,20 @@ def mapper_ids(series):
 
     return series_mapped, map_
 
+# Statistics
 
-def test_proportions_in_dataframe(df, column, cat1,cat2, metric, return_=False):
+def create_pairs_cat(df, column):
+    '''
+    Fucntion to create pairs of categories inside a column in dataframe.
+    For example:
+        Input -> Categories = [A, B, C]
+        Output -> [(A,B), (B,C), (A,C)]
+    '''
+    cats = np.sort(np.array(df[column].unique()))
+    combinations_ = combinations(cats, 2)
+    return combinations_
+
+def test_proportions_in_dataframe(df, column, cat1,cat2, metric, return_=False, return_2 = False):
     '''
     Function to assert that two proportions are statistically different.
     Description
@@ -76,15 +95,18 @@ def test_proportions_in_dataframe(df, column, cat1,cat2, metric, return_=False):
     # Evaluation of p-value
     if p_value > 0.05:
         print(f'p-value of {p_value.round(3)}. With confidence value of 0.05, {cat1} and {cat2} distributions are equal')
+        result = 'equal'
     else:
         print(f'p-value of {p_value.round(3)}. With confidence value of 0.05, {cat1} and {cat2} distributions are different')
+        result = 'different'
 
     # Return statistics
     if return_:
         return cnt_1, succ_1, cnt_2, succ_2
-
-
-def test_means_in_dataframe(df, column, cat1,cat2, metric, return_=False):
+    
+    
+def test_means_in_dataframe(df, column, cat1,cat2, metric, print_result=True, return_=False,
+    return_2 = False):
     '''
     Function to assert that two means are statistically different.
     Description
@@ -116,17 +138,116 @@ def test_means_in_dataframe(df, column, cat1,cat2, metric, return_=False):
     # Test mean difference for two independent samples
     _, p_value, _ = weightstats.ttest_ind(x1=serie1, x2=serie2, value=0)  
 
+    
     # Evaluation of p-value
     if p_value > 0.05:
-        print(f'p-value of {p_value.round(3)}.\nWith confidence value of 0.05, means of {cat1} ({mean1}) and {cat2} ({mean2}) are equal\n')
+        result = 'equal'
     else:
-        print(f'p-value of {p_value.round(3)}. With confidence value of 0.05, means of {cat1} ({mean1}) and {cat2} ({mean2}) are are different')
+        result = 'different'
 
+    if print_result:
+        if result == 'equal':
+            print(f'(==) Means of {cat1} ({mean1}) and {cat2} ({mean2}) are equal (diff = {(mean1-mean2).round(2)}). p-value = {p_value.round(3)}, confidence value = 0.05')
+        else:
+            print(f'(!=) Means of {cat1} ({mean1}) and {cat2} ({mean2}) are different (diff = {(mean1-mean2).round(2)}). p-value = {p_value.round(3)}, confidence value = 0.05')
+            
+            
     # Return statistics
     if return_:
         return mean1, mean2
 
+    if return_2:
+        return result, mean1-mean2
 
+def best_groups_means(df, column, metric):
+    '''
+    Function to create a dataframe with best groups based in mean of a metric.
+    '''
+    # Group dataframe
+    df_group = df.groupby(column)[metric].mean().sort_values(ascending=False)
+    categories = np.array(df_group.index)
+    values = np.array(df_group.values)
+
+    best_groups = []
+    gains = []
+    
+    max_group = categories[0]
+    best_value = values[0].round(2)
+    best_groups.append(max_group)
+    
+    for group in categories[1:]:
+        compare, diff = test_means_in_dataframe(df,column, metric=metric, cat1=max_group, cat2=group, return_2=True, print_result=False)
+        if compare == 'equal':
+            best_groups.append(group)
+        if compare == 'different':
+            gains.append(diff)
+    
+    if gains:
+        min_gain = np.array(gains).min()
+    else:
+        min_gain = 0
+        
+    df = pd.DataFrame({'best_groups':[best_groups], 'best_value':best_value,
+        'min_gain':min_gain}, index=[column])
+    return df
+
+def resume_differences(df, category):
+    '''
+    TODO docstring
+    '''
+
+    # Case it is informational, do not print complete informations
+    if df['offer_type'].unique()[0] != 'informational':
+        print('\n---Complete Rate---------\n')
+        # Complete
+        plot_by_category_metric(df=df, 
+                col_category=category,
+                metric='completed_after_view_rate',
+                title='Taxa de ofertas completas',
+                x_label='Completed rate',
+                y_label='Age Quartile',
+                xlims=[0,1]
+                )
+
+        groups = create_pairs_cat(df, category)
+
+        for group in groups:
+            test_means_in_dataframe(df, column=category, 
+                cat1=group[0], cat2=group[1], metric='completed_after_view_rate')
+        plt.show()
+
+    print('\n---Transactions---------\n')
+
+    # Transactions
+    plot_by_category_metric(df=df, 
+            col_category=category,
+            metric='tra_offer_infl',
+            title='Taxa de ofertas completas',
+            x_label='Completed rate',
+            y_label='Age Quartile'
+            )
+
+    groups = create_pairs_cat(df, category)
+
+    for group in groups:
+        test_means_in_dataframe(df, column=category, 
+            cat1=group[0], cat2=group[1], metric='tra_offer_infl')
+    plt.show()
+
+def resume_best_for_groups(df,category,metric):
+    values = df[category].unique()
+
+    dfs = []
+
+    for value in values:
+        local_df = df.loc[df[category] == value]
+        df_best_groups = best_groups_means(local_df, 'offer_type', metric)
+        df_best_groups['category'] = value
+        dfs.append(df_best_groups.set_index('category'))
+
+    return pd.concat(dfs).sort_index()
+
+# Plotting
 def plot_grid_categories_metric(df, cols_cats, col_cat_to_grid,col_cat_to_acc, metric, 
     title, x_label, y_label, return_table = False, agg='mean'):
 
@@ -149,7 +270,6 @@ def plot_grid_categories_metric(df, cols_cats, col_cat_to_grid,col_cat_to_acc, m
 
     if return_table:
         return plot_df
-
 
 def plot_by_category_metric(df, col_category, metric, title, x_label, y_label, 
     return_table = False, agg='mean', ax=False, xlims=False, dodge=False):
@@ -254,7 +374,7 @@ def plot_grid_metrics(df, col_category, dodge=False):
         top_adjust = .8
         
     # Create a subplot figure 
-    f, axs = plt.subplots(nrows=1, ncols=4, sharey=True, 
+    f, axs = plt.subplots(nrows=1, ncols=3, sharey=True, 
         gridspec_kw={'wspace':0.08}
         )
     f.subplots_adjust(top=top_adjust)
@@ -264,41 +384,41 @@ def plot_grid_metrics(df, col_category, dodge=False):
     f.suptitle('Metrics by ' + cat_name)
 
     # Metric: Proportion of total
-    plot_by_category_metric(df=df, 
-        col_category=col_category,
-        metric='user_id',
-        title='Número de ofertas enviadas',
-        x_label='Proportion of total',
-        y_label=cat_name,
-        xlims=[0,0.6],
-        ax=axs[0],
-        agg='proportion',
-        dodge = dodge
-        )
+    # plot_by_category_metric(df=df, 
+    #     col_category=col_category,
+    #     metric='user_id',
+    #     title='Número de ofertas enviadas',
+    #     x_label='Proportion of total',
+    #     y_label=cat_name,
+    #     xlims=[0,0.6],
+    #     ax=axs[0],
+    #     agg='proportion',
+    #     dodge = dodge
+    #     )
 
     # Metric: Visualization Rate
     plot_by_category_metric(df=df, 
         col_category=col_category,
-        metric='viewed_rate',
+        metric='valid_view_rate',
         title='Taxa de visualização de oferta',
         x_label='Viewed rate',
         y_label=cat_name,
         xlims=[0,1],
-        ax=axs[1],
+        ax=axs[0],
         dodge = dodge
         )
 
-    plot_df = df.loc[df['viewed_rate'] != 0] # just 
+    plot_df = df.loc[df['valid_view_rate'] != 0] # just 
 
     # Metric: Complete Rate
     plot_by_category_metric(df=plot_df, 
         col_category=col_category,
-        metric='completed_rate',
+        metric='completed_after_view_rate',
         title='Taxa de ofertas completas',
         x_label='Completed rate',
         y_label=cat_name,
         xlims=[0,1],
-        ax=axs[2],
+        ax=axs[1],
         dodge = dodge
         )
 
@@ -309,45 +429,70 @@ def plot_grid_metrics(df, col_category, dodge=False):
         title='Média de transações',
         x_label='Transactions $',
         y_label=cat_name,
-        ax=axs[3],
+        ax=axs[2],
         dodge = dodge
         )
 
 
+# Modeling
+
+def evaluate_model(model, X_train, y_train, X_test, y_test):
+    '''
+    TODO 
+    '''
+    y_pred_train = model.predict(X_train)
+    y_pred_test = model.predict(X_test)
+
+    # Evaluate the perfomance
+    print('Perfomance with Train\n')
+    print(classification_report(y_train, y_pred_train))
+    ConfusionMatrixDisplay(confusion_matrix(y_train, y_pred_train)).plot()
+    plt.show()
+
+    print('Perfomance with Test\n')
+    print(classification_report(y_test, y_pred_test))
+    ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred_test)).plot()
+    plt.show()
 
 
+def expand_dataframe(df1, df2):
+    df1['key'] = 0
+    df2['key'] = 0
 
-
-
-# def plot_by_category_count(df, col_category,
-#     title, x_label, y_label, return_table = False, ax=False, xlims=False
-#     ):
-#     '''
-#     Function to plot a bar horizontal and show the cont of values
-#     by different categories    
-#     '''
-
-#     # Group data
-#     plot_df = df[col_category].value_counts().sort_index(ascending=False) / df.shape[0]
+    df = df1.merge(df2, on='key').drop(columns='key')
     
-#     if not ax:
-#         f, ax = plt.subplots()
-#         f.set_dpi(85)
 
-#     # Colors
-#     size = plot_df.shape[0]
-#     colors = ['lightseagreen', 'teal', 'steelblue']
 
-#     plot_df.plot.barh(ax=ax, color=colors)
-#     # sns.barplot(plot_df)
-#     ax.set_title(title)
-#     ax.set_xlabel(x_label)
-#     ax.set_ylabel(y_label)
+    return df
+
+def evaluate_model_reg(model, X_train, y_train, X_test, y_test):
+    '''
+    TODO 
+    '''
+    y_pred_train = model.predict(X_train)
+    y_pred_test = model.predict(X_test)
+
+    # Evaluate the perfomance
+    print('Perfomance with Train\n')
+    print(f'R2: {model.score(X_train, y_train)}')
+
+    print('Perfomance with Test\n')
+    print(f'R2: {model.score(X_test, y_test)}')
+
+    print('Residuals plot')
+    visu = ResidualsPlot(model)
+    visu.fit(X_train, y_train)
+    visu.score(X_test, y_test)
+    plt.title('\nResidual plot')
+    visu.show()   
+
+
+def expand_dataframe(df1, df2):
+    df1['key'] = 0
+    df2['key'] = 0
+
+    df = df1.merge(df2, on='key').drop(columns='key')
     
-#     if xlims:
-#         ax.set_xlim(xlims)
 
-#     if not ax:
-#         plt.show()
-#     if return_table:
-#         return plot_df.sort_index(ascending=True)
+
+    return df
