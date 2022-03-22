@@ -1,7 +1,14 @@
 '''
-Auxiliary module to the project
+Auxiliary functions to the project
+
+São quatro seções: 
+Utilities, Statistics, Plotting and Modeling
+
+Warning!!!
+The version of the StatsModels package must be updated to '0.13.2' for this
+module run correctly
+
 '''
-from unittest import result
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,7 +21,6 @@ import importlib
 from datetime import datetime as dti
 from statsmodels.stats import proportion, weightstats
 from itertools import combinations
-# from yellowbrick.regressor import ResidualsPlot
 
 
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay,confusion_matrix
@@ -103,7 +109,6 @@ def test_proportions_in_dataframe(df, column, cat1,cat2, metric, return_=False, 
     # Return statistics
     if return_:
         return cnt_1, succ_1, cnt_2, succ_2
-    
     
 def test_means_in_dataframe(df, column, cat1,cat2, metric, print_result=True, return_=False,
     return_2 = False):
@@ -203,7 +208,7 @@ def resume_differences(df, category):
         plot_by_category_metric(df=df, 
                 col_category=category,
                 metric='completed_after_view_rate',
-                title='Taxa de ofertas completas',
+                title='Offer complete rate',
                 x_label='Completed rate',
                 y_label=category,
                 xlims=[0,1]
@@ -222,8 +227,8 @@ def resume_differences(df, category):
     plot_by_category_metric(df=df, 
             col_category=category,
             metric='tra_offer_infl',
-            title='Taxa de ofertas completas',
-            x_label='Completed rate',
+            title='Average transaction',
+            x_label='Transaction $',
             y_label=category
             )
 
@@ -250,6 +255,9 @@ def resume_best_for_groups(df,category,metric):
 # Plotting
 def plot_grid_categories_metric(df, cols_cats, col_cat_to_grid,col_cat_to_acc, metric, 
     title, x_label, y_label, return_table = False, agg='mean'):
+    '''
+    
+    '''
 
     # Group the df
     # plot_df = df.groupby(['offer_type', 'age_quartile'], as_index=False)['viewed_rate'].mean().sort_index(ascending=True)
@@ -354,7 +362,8 @@ def plot_by_category_metric(df, col_category, metric, title, x_label, y_label,
 
 def plot_grid_metrics(df, col_category, dodge=False):
     '''
-    Function to plot a grid. This function uses the plot_by_category_metric.
+    Function to plot a grid. This function uses the plot_by_category_metric to 
+    plot different graph inside a subplots objet of matplotlib.
     Input:
         df - (dataframe wit data)
         col_category - (str or list of str) Column with category to plot
@@ -368,10 +377,10 @@ def plot_grid_metrics(df, col_category, dodge=False):
     # Treat the name of main category
     if isinstance(col_category, list):
         cat_name = col_category[0].replace('_',' ').title()
-        top_adjust = .7
+        top_adjust = .7 # no legends
     else:
         cat_name = col_category.replace('_',' ').title()
-        top_adjust = .8
+        top_adjust = .8 # space for legends
         
     # Create a subplot figure 
     f, axs = plt.subplots(nrows=1, ncols=3, sharey=True, 
@@ -383,24 +392,11 @@ def plot_grid_metrics(df, col_category, dodge=False):
     
     f.suptitle('Metrics by ' + cat_name)
 
-    # Metric: Proportion of total
-    # plot_by_category_metric(df=df, 
-    #     col_category=col_category,
-    #     metric='user_id',
-    #     title='Número de ofertas enviadas',
-    #     x_label='Proportion of total',
-    #     y_label=cat_name,
-    #     xlims=[0,0.6],
-    #     ax=axs[0],
-    #     agg='proportion',
-    #     dodge = dodge
-    #     )
-
     # Metric: Visualization Rate
     plot_by_category_metric(df=df, 
         col_category=col_category,
         metric='valid_view_rate',
-        title='Taxa de visualização de oferta',
+        title='Offer viewed rate',
         x_label='Viewed rate',
         y_label=cat_name,
         xlims=[0,1],
@@ -414,8 +410,8 @@ def plot_grid_metrics(df, col_category, dodge=False):
     plot_by_category_metric(df=plot_df, 
         col_category=col_category,
         metric='completed_after_view_rate',
-        title='Taxa de ofertas completas',
-        x_label='Completed rate',
+        title='Offer complete rate',
+        x_label='Complete rate',
         y_label=cat_name,
         xlims=[0,1],
         ax=axs[1],
@@ -426,7 +422,7 @@ def plot_grid_metrics(df, col_category, dodge=False):
     plot_by_category_metric(df=df, 
         col_category=col_category,
         metric='tra_offer_infl',
-        title='Média de transações',
+        title='Average transaction',
         x_label='Transactions $',
         y_label=cat_name,
         ax=axs[2],
@@ -453,7 +449,6 @@ def evaluate_model(model, X_train, y_train, X_test, y_test):
     print(classification_report(y_test, y_pred_test))
     ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred_test)).plot()
     plt.show()
-
 
 def expand_dataframe(df1, df2):
     df1['key'] = 0
@@ -484,7 +479,6 @@ def evaluate_model_reg(model, X_train, y_train, X_test, y_test):
     plt.scatter(y_pred_test, abs(y_pred_test-y_test))
     plt.title('\nResidual plot')
     plt.show()
-
 
 def expand_dataframe(df1, df2):
     df1['key'] = 0
