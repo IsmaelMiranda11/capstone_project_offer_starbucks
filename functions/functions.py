@@ -14,7 +14,7 @@ import importlib
 from datetime import datetime as dti
 from statsmodels.stats import proportion, weightstats
 from itertools import combinations
-from yellowbrick.regressor import ResidualsPlot
+# from yellowbrick.regressor import ResidualsPlot
 
 
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay,confusion_matrix
@@ -205,7 +205,7 @@ def resume_differences(df, category):
                 metric='completed_after_view_rate',
                 title='Taxa de ofertas completas',
                 x_label='Completed rate',
-                y_label='Age Quartile',
+                y_label=category,
                 xlims=[0,1]
                 )
 
@@ -224,7 +224,7 @@ def resume_differences(df, category):
             metric='tra_offer_infl',
             title='Taxa de ofertas completas',
             x_label='Completed rate',
-            y_label='Age Quartile'
+            y_label=category
             )
 
     groups = create_pairs_cat(df, category)
@@ -480,11 +480,10 @@ def evaluate_model_reg(model, X_train, y_train, X_test, y_test):
     print(f'R2: {model.score(X_test, y_test)}')
 
     print('Residuals plot')
-    visu = ResidualsPlot(model)
-    visu.fit(X_train, y_train)
-    visu.score(X_test, y_test)
+    plt.scatter(y_pred_train, abs(y_pred_train-y_train))
+    plt.scatter(y_pred_test, abs(y_pred_test-y_test))
     plt.title('\nResidual plot')
-    visu.show()   
+    plt.show()
 
 
 def expand_dataframe(df1, df2):

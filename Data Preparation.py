@@ -11,13 +11,12 @@ import functions as aux_fun
 importlib.reload(aux_fun)
 from datetime import datetime as dti
 
-# Lendo os dados
+# Reading data
 portfolio = pd.read_json('data/portfolio.json', orient='records', lines=True)
 profile = pd.read_json('data/profile.json', orient='records', lines=True)
 transcript = pd.read_json('data/transcript.json', orient='records', lines=True)
 
-# Mapping to integer   
-# O código hexadecimal é grande para trabalhar
+# Mapping to integer dictionaries
 map_portifolio = json.load(open('mapper_id/portifolio_ids.json'))
 map_profile = json.load(open('mapper_id/profile_ids.json'))
 
@@ -213,9 +212,6 @@ def get_offer_table_user(user):
             fill_value=transcript.time.max())['time_vie'].bfill()
 
 
-    # Transactions from user, influenced by offers
-    offer_df['tra_offer_infl'] = 0.0000
-
     # 2.2 - Complete offers
     # Complete offers
     offer_rec_vie = offer_df.copy() # get a copy before merge
@@ -235,14 +231,16 @@ def get_offer_table_user(user):
 
     offer_df = guarantee_viewed(offer_rec_vie, offer_df) # all offers in dataset
 
-    # 2.2 - Transactions
+    # 2.3 - Transactions
     # Iterate over offers dataset and searching in the transactions the intervals
     # considered to be influenced by an offer
+
+    offer_df['tra_offer_infl'] = 0.0000
 
     for idx, _ in offer_df.iterrows():
         time_vie  = offer_df['time_vie'].at[idx]
         time_max  = offer_df['period_max'].at[idx]
-        time_next = offer_df['time_vie_next'].at[idx]
+        time_vie_next = offer_df['time_vie_next'].at[idx]
         time_com = offer_df['time_com'].at[idx]
         
         # Check if time_vie is na. If so, there is no transaction for it
@@ -263,7 +261,7 @@ def get_offer_table_user(user):
             amo_tra  = transaction_df['amount_tra'].at[jdx]
         
             if (time_tra >= time_vie) and \
-                (time_tra < time_next and time_tra <= time_max and \
+                (time_tra < time_vie_next and time_tra <= time_max and \
                 time_tra <= time_com):
                 sum_tra_infl += amo_tra
         
@@ -271,7 +269,7 @@ def get_offer_table_user(user):
         offer_df['tra_offer_infl'].at[idx] = sum_tra_infl
     
 
-    # 2.3 - Final
+    # 2.4 - Final
     # Getting the status for offers
     offer_df['viewed'] = offer_df.apply(lambda r: 
         1 if not pd.isna(r['time_vie']) else 0,
@@ -324,8 +322,6 @@ def group_offer_df(offer_df, map_dict=map_portifolio):
         reward_won=('reward_com', 'sum')
         )
 
-    # offer_df = expand_portifolio(offer_df)
-    # TODO
 
     offer_df['offer_id_rec'] = offer_df['offer_id_rec'].map(map_dict)
 
@@ -358,18 +354,12 @@ def generate_user_offer():
     cnt = 0
     for user in users:
         cnt += 1
-        try:
-            df = create_user_offer_df(user)
-            dfs.append(df)
-        except:
-            print(user)
-        print((cnt/17000)*100, end="\r")
-
+        df = create_user_offer_df(user)
+        dfs.append(df)
+        print((cnt/len(users))*100, end="\r")
 
     user_offer_df = pd.concat(dfs).reset_index(drop=True)
-
-    user_offer_df.to_csv('user_offer6.csv', index=False)
-    user_offer_df.to_excel('user_offer6.xlsx')
+    user_offer_df.to_csv('user_offer.csv', index=False)
 
 def generate_user_transactions():
     '''
@@ -381,15 +371,15 @@ def generate_user_transactions():
     tra_user_df['person'] = tra_user_df['person'].map(map_profile)
     tra_user_df.to_csv('user_transactions.csv', index=False)
 
-def mapper_hex_id(profile, portfolio):
-    '''
-    Function to map hexadecimal ids to interger ids. Create 
-    a new column in existing datasets
-    '''
-    profile['user_id'] = profile.id.map(map_profile)
-    portfolio['offer_id'] = portfolio.id.map(map_portifolio)
+# def mapper_hex_id(profile, portfolio):
+#     '''
+#     Function to map hexadecimal ids to interger ids. Create 
+#     a new column in existing datasets
+#     '''
+#     profile['user_id'] = profile.id.map(map_profile)
+#     portfolio['offer_id'] = portfolio.id.map(map_portifolio)
 
-    return profile, portfolio
+#     return profile, portfolio
 
 def generate_datasets():
     '''
@@ -397,13 +387,14 @@ def generate_datasets():
     to be used in others analysis
     '''
     # To map
-    profile_, portfolio_ = mapper_hex_id(profile, portfolio)
+    profile['user_id'] = profile.id.map(map_profile)
+    portfolio['offer_id'] = portfolio.id.map(map_portifolio)
     # Save as csv files
-    profile_.to_csv('profile.csv', index=False)
-    portfolio_.to_csv('portfolio.csv', index=False)
+    profile.to_csv('profile.csv', index=False)
+    portfolio.to_csv('portfolio.csv', index=False)
 
 
 
-# generate_user_offer()
-# generate_user_transactions()
+generate_user_offer()
+generate_user_transactions()
 generate_datasets()
