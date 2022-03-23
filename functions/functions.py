@@ -22,7 +22,6 @@ from datetime import datetime as dti
 from statsmodels.stats import proportion, weightstats
 from itertools import combinations
 
-
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay,confusion_matrix
 
 # Utilities
@@ -434,7 +433,19 @@ def plot_grid_metrics(df, col_category, dodge=False):
 
 def evaluate_model(model, X_train, y_train, X_test, y_test):
     '''
-    TODO 
+    Function to print the results of a trained model.
+    Input:
+        model - (sklearn model) An fitted model of sklearn
+        X_train - (dataframe) A dataframe with train data
+        y_train - (series) A dataframe with train target data
+        X_test - (dataframe) A dataframe with test data
+        y_test - (series) A dataframe with test target data
+    Output:
+        None
+    Description
+        The function receives the template and print a classification_report with
+        training and test data.In addition, plota a matrix of
+        to view the planned and real classes.
     '''
     y_pred_train = model.predict(X_train)
     y_pred_test = model.predict(X_test)
