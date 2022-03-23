@@ -4,8 +4,6 @@ Module to tranform hash ids to int ids
 
 from matplotlib.font_manager import json_dump
 import pandas as pd
-# from functions.functions import mapper_ids
-import json
 
 def mapper_ids(series):
     '''

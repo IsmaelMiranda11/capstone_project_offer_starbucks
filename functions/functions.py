@@ -12,38 +12,12 @@ module run correctly
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import json
+
 import seaborn as sns
-import os
-import sys
-import importlib
-from datetime import datetime as dti
 from statsmodels.stats import proportion, weightstats
 from itertools import combinations
 
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay,confusion_matrix
-
-# Utilities
-def mapper_ids(series):
-    '''
-    Function to mapper hex or other type of id and put it
-    in a sequential manner
-    Input
-        series - (pandas series) a series of pandas with ids
-    Output
-        series_mapped - (pandas series) the input series mapped
-    '''
-
-    map_ = dict()
-    
-    for j, id in enumerate(series.values):
-        map_[id] = int(j)
-
-    # Convert
-    series_mapped = series.map(map_)
-
-    return series_mapped, map_
 
 # Statistics
 
@@ -255,8 +229,29 @@ def resume_best_for_groups(df,category,metric):
 def plot_grid_categories_metric(df, cols_cats, col_cat_to_grid,col_cat_to_acc, metric, 
     title, x_label, y_label, return_table = False, agg='mean'):
     '''
-    
-    '''
+    Function to plot a bar horizontal for a metric and category.
+    ### Description
+        The function receive a category column and metric. With it, plot
+        a horizontal bar with values plotted.
+    ### Input
+        df - (dataframe) Pandas dataframe with data.   
+        col_category - (str or list of str) One category column to group
+        data in df. If a list of string is provided, the group operation
+        is done with all of it and the plot will be done with two groups.         
+        metric - (str) The metric column in df.  
+        title - (str) Title of graph.  
+        x_label - (str) Title for x axes.  
+        y_label - (str) Title for y axes.  
+        return_table (bool) If true, return the dataframe grouped that
+        is used to plot.  
+        agg - (str, {'mean', 'proportion'}) If mean, the group operation
+        is done by mean of metric. If 'proportion', the metric column is 
+        just a anchor for calculate the proportiton of group in whole dataframe.  
+    ### Output
+        In general, the function plot a graph.  
+        If return_table == True:  
+            plot_df - (dataframe) Dataframe used to plot the graph  
+    '''   
 
     # Group the df
     # plot_df = df.groupby(['offer_type', 'age_quartile'], as_index=False)['viewed_rate'].mean().sort_index(ascending=True)
@@ -443,8 +438,8 @@ def evaluate_model(model, X_train, y_train, X_test, y_test):
     Output:
         None
     Description
-        The function receives the template and print a classification_report with
-        training and test data.In addition, plota a matrix of
+        The function receives the model and print a classification_report with
+        training and test data.In addition, plot a matrix of
         to view the planned and real classes.
     '''
     y_pred_train = model.predict(X_train)
@@ -461,19 +456,20 @@ def evaluate_model(model, X_train, y_train, X_test, y_test):
     ConfusionMatrixDisplay(confusion_matrix(y_test, y_pred_test)).plot()
     plt.show()
 
-def expand_dataframe(df1, df2):
-    df1['key'] = 0
-    df2['key'] = 0
-
-    df = df1.merge(df2, on='key').drop(columns='key')
-    
-
-
-    return df
-
 def evaluate_model_reg(model, X_train, y_train, X_test, y_test):
     '''
-    TODO 
+    Function to print the results of a trained model.
+    Input:
+        model - (sklearn model) An fitted model of sklearn
+        X_train - (dataframe) A dataframe with train data
+        y_train - (series) A dataframe with train target data
+        X_test - (dataframe) A dataframe with test data
+        y_test - (series) A dataframe with test target data
+    Output:
+        None
+    Description
+        The function receives the model and print R² with
+        training and test data.In addition, plot a residuals graph.
     '''
     y_pred_train = model.predict(X_train)
     y_pred_test = model.predict(X_test)
@@ -492,11 +488,12 @@ def evaluate_model_reg(model, X_train, y_train, X_test, y_test):
     plt.show()
 
 def expand_dataframe(df1, df2):
+    '''
+    Receive two dataframes and make a cartesian product on the lines
+    '''
     df1['key'] = 0
     df2['key'] = 0
 
     df = df1.merge(df2, on='key').drop(columns='key')
     
-
-
     return df
