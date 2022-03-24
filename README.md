@@ -56,7 +56,7 @@ If you want, you can make the repository fork and run the files in sequence to f
 ## Results <a name="results"></a>
 
 The results of each step are commented within the jupyter notebooks.
-A complete explanation of the project can be read in this [blog post]()
+A complete explanation of the project can be read in this [blog post](https://medium.com/@ismaelfmiranda/lets-have-a-coffee-data-modeling-of-offers-from-starbucks-4f83af93aa23)
   
 
 ## Licensing, Authors, and Acknowledgements<a name="lic"></a>
